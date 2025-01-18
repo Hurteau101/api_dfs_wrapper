@@ -1,3 +1,5 @@
+import json
+
 from DFS_Wrapper.DFS_Base import DFS
 
 class PrizePick(DFS):
@@ -15,6 +17,57 @@ class PrizePick(DFS):
            league["attributes"]["league"]: league["relationships"]["league"]["data"]["id"]
            for league in self.api_data["included"] if league.get("attributes") and league["attributes"].get("league") is not None
         }
+
+
+    def _organize_data(self, prizepick_data):
+        """
+        Organize PrizePick data by league
+        :param prizepick_data: PrizePick Data
+        :return: Returns a dictionary of PrizePick data organized by league.
+        """
+        organized_data = {}
+
+        for data in prizepick_data:
+            league = data["league"]
+
+            if league not in organized_data:
+                organized_data[league] = []
+
+            player_entry = next(
+                (player for player in organized_data[league] if player["player_id"] == data["player_id"]),
+                None
+            )
+
+            if not player_entry:
+                player_entry = {
+                    "player_id": data["player_id"],
+                    "player_name": data["player_name"],
+                    "team": data["team"],
+                    "opponent": data["opponent"],
+                    "stats": []  # Flat list of stats
+                }
+                organized_data[league].append(player_entry)
+
+            player_entry["stats"].append({
+                "stat_type": data["stat_type"],
+                **(
+                    {
+                        "promo_line": data.get("promo_line"),
+                        "discount_name": data.get("discount_name"),
+                        "discount_percentage": data.get("discount_percentage"),
+                        "end_promo_date": data.get("end_time"),
+                    }
+                    if data.get("promo_line") else {
+                        "line_score": data["line_score"],
+                    }
+                ),
+                "odds_type": data["odds_type"],
+                "start_time": data["start_time"],
+                "status": data["status"]
+            })
+
+        return organized_data
+
 
     def _get_prizepick_data(self):
         """
@@ -39,7 +92,7 @@ class PrizePick(DFS):
                 "opponent": game_details["attributes"]["description"].split(" ")[0],
                 **(
                     {
-                        "promo": game_details["attributes"].get("flash_sale_line_score"),
+                        "promo_line": game_details["attributes"].get("flash_sale_line_score"),
                         "discount_name": game_details["attributes"].get("discount_name"),
                         "discount_percentage": game_details["attributes"].get("discount_percentage"),
                         "end_promo_date": game_details["attributes"].get("end_time"),
@@ -63,12 +116,19 @@ class PrizePick(DFS):
             None
         )
 
-    def get_data(self):
+    def get_data(self, organize_data=True):
         """
         Get PrizePick Data
-        :return: Returns a list of PrizePick Data
+        :param organize_data: Organize the data by league
+        :return: Returns a list of PrizePick data if organize_data is False, else returns dictionary of data organized by league.
         """
-        return self._get_prizepick_data()
+        prizepick_data = self._get_prizepick_data()
+
+        if not organize_data:
+            return prizepick_data
+
+        return self._organize_data(prizepick_data)
+
 
     def get_leagues(self):
         """
@@ -76,3 +136,7 @@ class PrizePick(DFS):
         :return: Returns the League Name: League ID
         """
         return self.leagues
+
+pp = PrizePick()
+with open("prizepick.json", "w") as f:
+    json.dump(pp.get_data(), f)
