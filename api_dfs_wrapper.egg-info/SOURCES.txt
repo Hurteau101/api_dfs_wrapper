@@ -1,5 +1,10 @@
 README.md
 setup.py
+DFS_Wrapper/CustomExceptions.py
+DFS_Wrapper/DFS_Base.py
+DFS_Wrapper/PrizePicks.py
+DFS_Wrapper/Underdog.py
+DFS_Wrapper/__init__.py
 api_dfs_wrapper.egg-info/PKG-INFO
 api_dfs_wrapper.egg-info/SOURCES.txt
 api_dfs_wrapper.egg-info/dependency_links.txt

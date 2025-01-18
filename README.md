@@ -3,7 +3,7 @@ A simple Python wrapper for DFS Books API to fetch player stats, leagues, and ot
 
 ## Installation
 Install the package directly from PyPI:
-pip install api-dfs-wrapper==0.4.0
+pip install api-dfs-wrapper==0.4.1
 
 ## Usage
 
