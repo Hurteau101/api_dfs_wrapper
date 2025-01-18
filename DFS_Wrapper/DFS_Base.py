@@ -33,3 +33,11 @@ class DFS:
     @abstractmethod
     def get_leagues(self):
         pass
+
+    @abstractmethod
+    def get_data(self, organized_data:bool=True):
+        pass
+
+    @abstractmethod
+    def _organize_data(self, dfs_data):
+        pass

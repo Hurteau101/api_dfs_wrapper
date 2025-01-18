@@ -169,12 +169,53 @@ class Underdog(DFS):
             return last_name.strip()
         return f"{first_name} {last_name}"
 
-    def get_data(self):
+    def _organize_data(self, underdog_data):
+        """
+        Organize the data by league
+        :param underdog_data: Underdog Data
+        :return: Returns  a dictionary of data organized by league.
+        """
+        organized_data = {}
+
+        for data in underdog_data:
+            league = data["sport_id"]
+
+            if league not in organized_data:
+                organized_data[league] = []
+
+            organized_data[league].append({
+                "player_name": data["player_name"],
+                "player_id": data["player_id"],
+                **(
+                    {
+                        "team": data.get("team"),
+                        "opponent": data.get("opponent"),
+                    }
+                    if data.get("team") else {
+                        "match": data["match"],
+                    }
+                ),
+                "match_id": data["match_id"],
+                "match_type": data["match_type"],
+                "team_id": data["team_id"],
+                "stat_id": data["stat_id"],
+                "stats": data["stats"]
+            })
+
+        return organized_data
+
+
+    def get_data(self, organized_data=True):
         """
         Get the Underdog API Data.
-        :return: Returns the Underdog API data in a list of dictionaries.
+        :return: Returns the Underdog API data in a list of dictionaries if organize_data is False,
+        else returns a dictionary of data organized by league.
         """
-        return self._get_player_information()
+        underdog_data = self._get_player_information()
+        if not organized_data:
+            return underdog_data
+
+        return self._organize_data(underdog_data)
 
 
     def _get_leagues_(self):
@@ -187,13 +228,10 @@ class Underdog(DFS):
             for league in self.api_data["players"] if league.get("sport_id") is not None
         )
 
-    def get_leagues(self):
+    def get_leagues(self, organized_data=True):
         """
         Get Leagues
         :return: Returns leagues in a set.
         """
         return self._get_leagues_()
 
-
-ud = Underdog()
-ud.get_data()
