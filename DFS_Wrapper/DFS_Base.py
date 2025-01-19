@@ -10,8 +10,8 @@ class DFS:
         'underdog': 'https://api.underdogfantasy.com/beta/v5/over_under_lines',
         'prizepick': 'https://partner-api.prizepicks.com/projections'
     }
-    def __init__(self, dfs_book: Literal['underdog', 'prizepick']):
-        self.api_data = self._get_api_data(dfs_book)
+    def __init__(self):
+        self.api_data = None
 
     def _get_api_data(self, dfs_book: Literal['underdog', 'prizepick']):
         if dfs_book.lower() not in ['underdog', 'prizepick']:

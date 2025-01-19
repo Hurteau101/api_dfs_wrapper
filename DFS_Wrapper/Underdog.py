@@ -5,9 +5,8 @@ class Underdog(DFS):
     OTHER_MAPPING_TEAM_INDEX = ("MASL", "ESPORTS", "UNRIVALED", "VAL", "CS", "LOL", "DOTA")
 
     def __init__(self):
-        super().__init__('underdog')
-        self.api_data = self._get_api_data('underdog')
-
+        super().__init__()
+        self.stats_cache = {}
 
     def _get_underdog_data_(self):
         """
@@ -21,32 +20,68 @@ class Underdog(DFS):
         Gets all player information.
         :return: Returns the player information in a list of dictionaries.
         """
+        player_info = []
+
+        for player in self.api_data["players"]:
+            for match in self.api_data["appearances"]:
+                if player.get("id") != match.get("player_id"):
+                    continue
+
+                player_info.append({
+                    "player_id": player.get("id"),
+                    "player_name": self._fix_name(player.get("first_name"), player.get("last_name")),
+                    "sport_id": player.get("sport_id"),
+                    "match_id": match.get("match_id"),
+                    "match_type": match.get("match_type"),
+                    "team_id": match.get("team_id"),
+                    "stat_id": match.get("id"),
+                    **self._get_team_details(match.get("match_id"), match.get("team_id"))[0],
+                    "stats": self._get_stats(match.get("id")),
+                })
+
+        return player_info
+
+    def _get_team_details(self, match_id, team_id):
+        """
+        Get Team Details
+        :param match_id: Match ID
+        :param team_id: Team ID
+        :return: Returns the team details.
+        """
+        solo_game = self._solo_game(match_id)
+        if solo_game:
+            return solo_game
+
         return [
             {
-                "player_name": self._fix_name(player["first_name"], player["last_name"]),
-                "player_id": player["id"],
-                "sport_id": player["sport_id"],
-                **{key: value for match in self._add_match_details(player["id"]) for key, value in match.items()},
+                "game_date_time": game.get("scheduled_at"),
+                **{key: value for key, value in self._map_team_opponent(team_id, game).items()},
             }
-            for player in self.api_data["players"]
+
+            for game in self.api_data["games"]
+            if game.get("id") == match_id
         ]
 
     def _get_stats(self, stat_id):
         """
-        Get the stats for the player
+        Get Stats
         :param stat_id: Stat ID of player.
         :return: Returns the stats for the player.
         """
-        return [
-            {
-                "stat_type": stat["over_under"]["appearance_stat"]["display_stat"].strip(),
-                "line_value": float(stat["stat_value"]),
-                "over_multiplier": self.get_multiplier(stat, over=True),
-                "under_multiplier": self.get_multiplier(stat),
-            }
-            for stat in self.api_data["over_under_lines"]
-            if stat_id == stat["over_under"]["appearance_stat"]["appearance_id"]
-        ]
+        if not self.stats_cache and self.api_data:
+            for stat in self.api_data["over_under_lines"]:
+                appearance_id = stat.get("over_under").get("appearance_stat").get("appearance_id")
+                if appearance_id not in self.stats_cache:
+                    self.stats_cache[appearance_id] = []
+                self.stats_cache[appearance_id].append({
+                    "stat_type": stat.get("over_under").get("appearance_stat").get("display_stat").strip(),
+                    "line_value": float(stat.get("stat_value")),
+                    "over_multiplier": self.get_multiplier(stat, over=True),
+                    "under_multiplier": self.get_multiplier(stat)
+                })
+
+        return self.stats_cache.get(stat_id, [])
+
 
     def get_multiplier(self, stat_details, over=False):
         """
@@ -56,47 +91,11 @@ class Underdog(DFS):
         :return: Returns the multiplier for the player.
         """
         for option in stat_details["options"]:
-            if option["choice_display"] == "Higher" and over:
-                return float(option["payout_multiplier"])
-            elif option["choice_display"] != "Higher" and not over:
-                return float(option["payout_multiplier"])
+            if option.get("choice_display") == "Higher" and over:
+                return float(option.get("payout_multiplier"))
+            elif option.get("choice_display") != "Higher" and not over:
+                return float(option.get("payout_multiplier"))
 
-    def _add_match_details(self, player_id):
-        """
-        Add Match IDs
-        :param player_id: Player ID
-        :return: Returns Match IDS, Team ID, Stat ID, Game Details, Solo Game, and Stats.
-        """
-        return (
-            {
-                "match_id": match["match_id"],
-                "match_type": match["match_type"],
-                "team_id": match["team_id"],
-                "stat_id": match["id"],
-                **{key: value for game_details in self._get_team_details(match["match_id"], match["team_id"]) for key, value in game_details.items()},
-                **{key: value for match in self._solo_game(match["match_id"]) for key, value in match.items()},
-                "stats": self._get_stats(match["id"]),
-            }
-            for match in self.api_data["appearances"]
-            if player_id == match["player_id"]
-        )
-
-
-    def _get_team_details(self, match_id, team_id):
-        """
-        Get Team Details
-        :param match_id: Match ID
-        :param team_id: Team ID
-        :return: Returns the team details.
-        """
-        return (
-            {
-                **{key: value for key, value in self._map_team_opponent(team_id, game).items()},
-            }
-
-            for game in self.api_data["games"]
-            if game["id"] == match_id
-        )
 
     def _map_team_opponent(self, team_id, game):
         """
@@ -105,31 +104,31 @@ class Underdog(DFS):
         :param game: Game Instance
         :return: Returns the team and opponent.
         """
-        if game["sport_id"] in self.OTHER_MAPPING_TEAM_INDEX:
-            match_title = self._fix_title(game["title"])
-            if team_id == game["home_team_id"]:
+        if game.get("sport_id") in self.OTHER_MAPPING_TEAM_INDEX:
+            match_title = self._fix_title(game.get("title"))
+            if team_id == game.get("home_team_id"):
                 return {
                     "team": match_title.replace(".", "").split("vs")[1].strip(),
                     "opponent": match_title.replace(".", "").split("vs")[0].strip()
                 }
-            elif team_id == game["away_team_id"]:
+            elif team_id == game.get("away_team_id"):
                 return {
                     "team": match_title.replace(".", "").split("vs")[0].strip(),
                     "opponent": match_title.replace(".", "").split("vs")[1].strip()
                 }
 
-        if team_id == game["home_team_id"]:
+        if team_id == game.get("home_team_id"):
             return {
                 "team": game["title"].split("@")[1].strip() if "@" in game["title"] else game["title"].replace(".", "").split("vs")[0].strip(),
                 "opponent": game["title"].split("@")[0].strip() if "@" in game["title"] else game["title"].replace(".", "").split("vs")[1].strip(),
             }
-        elif team_id == game["away_team_id"]:
+        elif team_id == game.get("away_team_id"):
             return {
                 "team": game["title"].split("@")[0].strip() if "@" in game["title"] else game["title"].replace(".","").split("vs")[1].strip(),
                 "opponent": game["title"].split("@")[1].strip() if "@" in game["title"] else game["title"].replace(".", "").split("vs")[0].strip(),
             }
 
-        return self._solo_game(game["match_id"])
+        return {}
 
     def _fix_title(self, match_title):
         """
@@ -149,12 +148,12 @@ class Underdog(DFS):
         """
         return [
             {
-                "start_time": solo_game["scheduled_at"],
-                "match": solo_game["title"],
+                "game_date_time": solo_game.get("scheduled_at"),
+                "match": solo_game.get("title"),
 
             }
-            for solo_game in self.api_data["solo_games"]
-            if solo_game["id"] == match_id
+            for solo_game in self.api_data.get("solo_games")
+            if solo_game.get("id") == match_id
         ]
 
 
@@ -175,34 +174,35 @@ class Underdog(DFS):
         :param underdog_data: Underdog Data
         :return: Returns  a dictionary of data organized by league.
         """
-        organized_data = {}
+        organized = {}
 
         for data in underdog_data:
-            league = data["sport_id"]
+            league = data.get("sport_id")
 
-            if league not in organized_data:
-                organized_data[league] = []
+            base_entry = {
+                "player_name": data.get("player_name"),
+                "player_id": data.get("player_id"),
+                "match_id": data.get("match_id"),
+                "match_type": data.get("match_type"),
+                "team_id": data.get("team_id"),
+                "stat_id": data.get("stat_id"),
+                "game_date_time": data.get("game_date_time"),
+                "stats": data.get("stats")
+            }
 
-            organized_data[league].append({
-                "player_name": data["player_name"],
-                "player_id": data["player_id"],
-                **(
-                    {
-                        "team": data.get("team"),
-                        "opponent": data.get("opponent"),
-                    }
-                    if data.get("team") else {
-                        "match": data["match"],
-                    }
-                ),
-                "match_id": data["match_id"],
-                "match_type": data["match_type"],
-                "team_id": data["team_id"],
-                "stat_id": data["stat_id"],
-                "stats": data["stats"]
-            })
+            if "team" in data and "opponent" in data:
+                base_entry.update({
+                    "team": data.get("team"),
+                    "opponent": data.get("opponent")
+                })
+            elif "match" in data:
+                base_entry["match"] = data.get("match")
 
-        return organized_data
+            if league not in organized:
+                organized[league] = []
+            organized[league].append(base_entry)
+
+        return organized
 
 
     def get_data(self, organized_data=True):
@@ -211,11 +211,9 @@ class Underdog(DFS):
         :return: Returns the Underdog API data in a list of dictionaries if organize_data is False,
         else returns a dictionary of data organized by league.
         """
+        self.api_data = self._get_api_data('underdog')
         underdog_data = self._get_player_information()
-        if not organized_data:
-            return underdog_data
-
-        return self._organize_data(underdog_data)
+        return self._organize_data(underdog_data) if organized_data else underdog_data
 
 
     def _get_leagues_(self):
@@ -234,4 +232,3 @@ class Underdog(DFS):
         :return: Returns leagues in a set.
         """
         return self._get_leagues_()
-

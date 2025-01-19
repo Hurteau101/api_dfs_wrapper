@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: api-dfs-wrapper
-Version: 0.4.1
+Version: 0.4.2
 Summary: DFS Wrapper to easily access DFS Books API
 Description-Content-Type: text/markdown
 Requires-Dist: certifi==2024.12.14
@@ -14,7 +14,7 @@ A simple Python wrapper for DFS Books API to fetch player stats, leagues, and ot
 
 ## Installation
 Install the package directly from PyPI:
-pip install api-dfs-wrapper==0.4.1
+pip install api-dfs-wrapper
 
 ## Usage
 
