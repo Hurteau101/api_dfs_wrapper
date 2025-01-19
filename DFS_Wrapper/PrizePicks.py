@@ -77,7 +77,7 @@ class PrizePick(DFS):
                     "team": data["team"],
                     "opponent": data["opponent"],
                     "game_date_time": data["game_date_time"],
-                    "stats": []  # Flat list of stats
+                    "stats": []
                 }
                 organized_data[league].append(player_entry)
 
@@ -119,6 +119,8 @@ class PrizePick(DFS):
         Get Leagues / League ID
         :return: League Name : League ID
         """
+        self.api_data = self._get_api_data('prizepick')
+
         return {
             league["attributes"]["league"]: league["relationships"]["league"]["data"]["id"]
             for league in self.api_data["included"] if

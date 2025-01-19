@@ -1,4 +1,5 @@
 from DFS_Wrapper.DFS_Base import DFS
+from default_mapper import SportsMappingDefaults
 
 class Underdog(DFS):
     # Mapping Index for _map_team_opponent due to different sports having different formats.
@@ -30,7 +31,7 @@ class Underdog(DFS):
                 player_info.append({
                     "player_id": player.get("id"),
                     "player_name": self._fix_name(player.get("first_name"), player.get("last_name")),
-                    "sport_id": player.get("sport_id"),
+                    "sport_id": player.get("sport_id") if player.get("sport_id") != "ESPORTS" else self._fix_sport_id(player.get("first_name")),
                     "match_id": match.get("match_id"),
                     "match_type": match.get("match_type"),
                     "team_id": match.get("team_id"),
@@ -40,6 +41,11 @@ class Underdog(DFS):
                 })
 
         return player_info
+
+    def _fix_sport_id(self, first_name):
+        return first_name.replace(":", "").strip()
+
+
 
     def _get_team_details(self, match_id, team_id):
         """
@@ -177,7 +183,7 @@ class Underdog(DFS):
         organized = {}
 
         for data in underdog_data:
-            league = data.get("sport_id")
+            league = SportsMappingDefaults.get_league_mapping(data.get("sport_id"))
 
             base_entry = {
                 "player_name": data.get("player_name"),
@@ -187,7 +193,6 @@ class Underdog(DFS):
                 "team_id": data.get("team_id"),
                 "stat_id": data.get("stat_id"),
                 "game_date_time": data.get("game_date_time"),
-                "stats": data.get("stats")
             }
 
             if "team" in data and "opponent" in data:
@@ -197,6 +202,8 @@ class Underdog(DFS):
                 })
             elif "match" in data:
                 base_entry["match"] = data.get("match")
+
+            base_entry.update({"stats": data.get("stats")})
 
             if league not in organized:
                 organized[league] = []
@@ -221,8 +228,10 @@ class Underdog(DFS):
         Get Leagues
         :return: Returns the League in a set.
         """
+        self.api_data = self._get_api_data('underdog')
+
         return set(
-            league["sport_id"]
+            SportsMappingDefaults.get_league_mapping(league["sport_id"])
             for league in self.api_data["players"] if league.get("sport_id") is not None
         )
 
@@ -232,3 +241,4 @@ class Underdog(DFS):
         :return: Returns leagues in a set.
         """
         return self._get_leagues_()
+

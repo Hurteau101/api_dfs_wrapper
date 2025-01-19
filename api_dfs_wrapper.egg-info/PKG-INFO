@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: api-dfs-wrapper
-Version: 0.4.2
+Version: 1.0.0
 Summary: DFS Wrapper to easily access DFS Books API
 Description-Content-Type: text/markdown
 Requires-Dist: certifi==2024.12.14
